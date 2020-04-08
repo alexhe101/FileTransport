@@ -1,100 +1,54 @@
 import socket
-import os
-''' 增加选择传输文件OR文件夹的功能 '''
-''' 传输文件用标志0，传输文件夹用标志1，附带上文件夹中各文件大小'''
+import sys
+from pathlib import Path
 
-totalSize = 0 #传输目录的时候所有文件大小之和
+# 发送方
+# 使用示例：python3 client.py abcd 123.123.123.123 1234
+# argv[1]: abcd 可以是任意文件或文件夹的相对或绝对路径
+# argv[2]: 123.123.123.123 是发送目的地的地址
+# argv[3]: 1234 是目的地端口
 
-def transportFile(sock,filepath):
+
+def transportFile(sock, filepath):
+    header = getHeader(filepath)       # 生成头部
+    sock.send(header.encode('utf-8'))  # 传输头部
 
     fp = open(filepath, 'rb')
-    fhead = buildHeadInfo(filepath)
-    fhead_size = buildFheadSize(fhead)
-    sock.send(fhead_size.encode('utf-8')) #传输头部大小
-    sock.send(fhead.encode('utf-8')) #传输头部信息
-    while True:
+    while True:                        # 连续传送文件
         data = fp.read(1024)
         if not data:
             break
         sock.send(data)
-    print("already transport",filepath)
-
-def buildHeadInfo(filepath):
-    file_size = os.stat(filepath).st_size #发送的时候传绝对路径
-    fhead = filepath + "," + str(file_size)
-    return fhead
-def buildFheadSize(fhead):
-    message_info_size = str(len(fhead))
-    if len(message_info_size)<100:
-        message_info_size.ljust(100," ")
-    return message_info_size
+    print("already transport", filepath)
 
 
+def getHeader(__p):
+    header = __p + ',' + str(Path(__p).stat().st_size)  # 报头：(路径)文件名,大小
+    header = header.ljust(100, ' ')  # 空白填充到100
+    return header
 
 
-def transportDir(sock,totalFile):
-    for filepath in totalFile:
-        transportFile(sock,filepath)
-
-def sendControlBit(sock,func):
-    if func==1:
-        sock.send("0".encode('utf-8'))
-    if func==2:
-        sock.send("1".encode('utf-8'))
-
-def getAllFile(filepath,totalFile):
-    tmp = os.listdir(filepath)
-    global totalSize
-    for f in tmp:
-        f = os.path.join(filepath,f)
-        if os.path.isfile(f):
-            totalFile.append(f)
-            totalSize = totalSize+os.path.getsize(f)
-        else:
-            getAllFile(f, totalFile)
-
-
+def getListOfFiles(__s):
+    __p = Path(__s)
+    if __p.is_file():
+        return [__p.name]   # 如果是文件则直接返回单元素列表
+    else:
+        return [__f.parent.relative_to(__p.parent).joinpath(__f.name)  # 将文件名加上文件夹的相对路径
+                for __f in __p.rglob('*')   # 选择所有文件和文件夹
+                if __f.is_file()]   # 仅选择文件
 
 
 if __name__ == '__main__':
-    s = socket.socket(socket.AF_INET,socket.SOCK_STREAM) #建立TCP连接
+    filePath = sys.argv[1]
+    remoteAddr = sys.argv[2]
+    remotePort = int(sys.argv[3])
 
-    totalFile = [] #储存需要发送的所有文件
-    s.connect(('127.0.0.1', 9999))
-    #读取文件,生成文件头部信息
-    while True:
-        print("choose function:")
-        print("input 1 for single file")
-        print("input 2 for files in dir")
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # 建立TCP连接
+    s.connect((remoteAddr, remotePort))  # 发起连接
 
-        function = eval(input())
-        print("input file name or dir name:")
-        filepath = input()
-        sendControlBit(s,function) #发送控制bit位
+    totalFile = getListOfFiles(filePath)  # 获得所有需要发送的所有文件
 
-        if function==1:
-            transportFile(s,filepath)
-            print("transport a file") #完成单个文件传输
+    for f in totalFile:
+        transportFile(s, f)
 
-
-
-        if function==2:
-            getAllFile(filepath,totalFile)
-            base_path = os.path.split(filepath)[1]
-            if len(base_path)<100:
-                base_path.ljust(100," ")
-            s.send(base_path.encode('utf-8')) #发送根目录信息
-            totalSize = str(totalSize)
-            if len(totalSize)<100:
-                totalSize.ljust(100," ")
-            s.send(totalSize.encode('utf-8'))
-
-            transportDir(s,totalFile)
-
-
-
-        print("input exit to quit,other key to continue")
-        control = input()
-        if control=='exit':
-            break
     s.close()
