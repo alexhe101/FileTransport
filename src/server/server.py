@@ -11,11 +11,12 @@ from pathlib import Path
 
 
 def recv_data(sock, save_location):
-    buffer = sock.recv(100)  # 获取头部信息
+    buffer = sock.recv(4)  # 获取文件名大小
     if buffer:
-        header = buffer.decode('utf-8').strip(' ')
-        relative_path, file_size = header.split(',')   # 解析报头
-        file_size = int(file_size)
+        file_name_size = int.from_bytes(buffer, byteorder="big")  # 获取文件名大小
+        relative_path = sock.recv(file_name_size) .decode('utf=8')  # 获取文件名
+        file_size = int.from_bytes(sock.recv(10), byteorder="big")  # 获取文件大小
+
         print(f'file new name is {relative_path}, filesize is {file_size}')
 
         # 获得保存位置到文件夹的路径

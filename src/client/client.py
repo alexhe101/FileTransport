@@ -10,11 +10,15 @@ from pathlib import Path
 
 # f 为文件到提供的文件夹的相对目录，用于传输报头
 # source 为提供的文件夹，用于读取文件
+
+
 def transportFile(sock, f, source):
     absolute = Path(source).parent.joinpath(f)  # 本地可访问文件路径
 
-    header = getHeader(f, absolute) # 生成头部
-    sock.send(header.encode('utf-8'))  # 传输头部
+    header = getHeader(f, absolute)  # 生成头部
+    sock.send(header[0])  # 传输文件名大小
+    sock.send(header[1])  # 传输文件名
+    sock.send(header[2])  # 传输文件大小
 
     fp = open(absolute, 'rb')
     while True:                        # 连续传送文件
@@ -26,9 +30,12 @@ def transportFile(sock, f, source):
 
 
 def getHeader(__p, __s):
-    header = str(__p) + ',' + str(Path(__s).stat().st_size)  # 报头：(路径)文件名,大小
-    header = header.ljust(100, ' ')  # 空白填充到100
-    return header
+    file_name = str(__p).encode('utf-8')  # (路径)文件名
+    file_name_size = len(file_name).to_bytes(
+        4, byteorder="big")  # 文件名长度(4Byte),
+    file_size = Path(__s).stat().st_size.to_bytes(
+        10, byteorder="big")  # 文件大小(10Byte)
+    return [file_name_size, file_name, file_size]
 
 
 def getListOfFiles(__s):
