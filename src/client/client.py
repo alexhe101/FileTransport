@@ -8,22 +8,25 @@ from pathlib import Path
 # argv[2]: 123.123.123.123 是发送目的地的地址
 # argv[3]: 1234 是目的地端口
 
+# f 为文件到提供的文件夹的相对目录，用于传输报头
+# source 为提供的文件夹，用于读取文件
+def transportFile(sock, f, source):
+    absolute = Path(source).parent.joinpath(f)  # 本地可访问文件路径
 
-def transportFile(sock, filepath):
-    header = getHeader(filepath)       # 生成头部
+    header = getHeader(f, absolute) # 生成头部
     sock.send(header.encode('utf-8'))  # 传输头部
 
-    fp = open(filepath, 'rb')
+    fp = open(absolute, 'rb')
     while True:                        # 连续传送文件
         data = fp.read(1024)
         if not data:
             break
         sock.send(data)
-    print("already transport", filepath)
+    print(f"already transport {absolute}")
 
 
-def getHeader(__p):
-    header = __p + ',' + str(Path(__p).stat().st_size)  # 报头：(路径)文件名,大小
+def getHeader(__p, __s):
+    header = str(__p) + ',' + str(Path(__s).stat().st_size)  # 报头：(路径)文件名,大小
     header = header.ljust(100, ' ')  # 空白填充到100
     return header
 
@@ -39,16 +42,16 @@ def getListOfFiles(__s):
 
 
 if __name__ == '__main__':
-    filePath = sys.argv[1]
+    source = sys.argv[1]
     remoteAddr = sys.argv[2]
     remotePort = int(sys.argv[3])
 
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # 建立TCP连接
     s.connect((remoteAddr, remotePort))  # 发起连接
 
-    totalFile = getListOfFiles(filePath)  # 获得所有需要发送的所有文件
+    relative_files = getListOfFiles(source)  # 获得所有需要发送的所有文件
 
-    for f in totalFile:
-        transportFile(s, f)
+    for f in relative_files:
+        transportFile(s, f, source)
 
     s.close()
