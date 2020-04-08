@@ -26,7 +26,7 @@ def buildHeadInfo(filepath):
 def buildFheadSize(fhead):
     message_info_size = str(len(fhead))
     if len(message_info_size)<100:
-        message_info_size.ljust(100," ")
+        message_info_size = message_info_size.ljust(100," ")
     return message_info_size
 
 
@@ -82,11 +82,11 @@ if __name__ == '__main__':
             getAllFile(filepath,totalFile)
             base_path = os.path.split(filepath)[1]
             if len(base_path)<100:
-                base_path.ljust(100," ")
+                base_path = base_path.ljust(100," ")
             s.send(base_path.encode('utf-8')) #发送根目录信息
             totalSize = str(totalSize)
             if len(totalSize)<100:
-                totalSize.ljust(100," ")
+                totalSize = totalSize.ljust(100," ")
             s.send(totalSize.encode('utf-8'))
 
             transportDir(s,totalFile)
