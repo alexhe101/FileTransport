@@ -2,6 +2,7 @@ import socket
 import sys
 from pathlib import Path
 import hashlib
+import os
 import zipfile
 # 发送方
 # 使用示例：
@@ -13,6 +14,41 @@ import zipfile
 # f 为文件到提供的文件夹的相对目录，用于传输报头
 # source 为提供的文件夹，用于读取文件
 ########
+def getAbsolutePath(f,source):
+    absolute = Path(source).parent.joinpath(f)
+    return str(absolute)
+
+def CreateZipFile(f,source):
+    absolute = getAbsolutePath(f,source)
+    zipFilePath = absolute+".zip"
+    fzip=  zipfile.ZipFile(zipFilePath,"w",zipfile.ZIP_DEFLATED)
+    fzip.write(absolute)
+
+class FileInfo():
+    def __init__(self,f,source):#f表示相对路径，source为根目录
+        self.absolute = Path(source).parent.joinpath(f)
+
+        self.file_name = str(f).encode('utf-8')
+
+        self.file_name_size = len(self.file_name).to_bytes(
+        4, byteorder="big")  # 文件名长度(4Byte)
+
+        self.file_size = Path(self.absolute).stat().st_size.to_bytes(
+        10, byteorder="big")
+
+        self.file_md5=GetFileMd5(Path(self.absolute)).encode('utf-8')
+
+        if os.path.exists(str(self.absolute)+".zip"):
+            self.zip_name_size = len(str(self.absolute)+".zip").to_bytes(4, byteorder="big")
+            self.zip_name = (str(f)+".zip").encode("utf-8")
+            self.zipSize = os.path.getsize(str(self.absolute)+".zip").to_bytes(
+        10, byteorder="big")
+        else:
+            tmp = 1
+            self.zipSize = tmp.to_bytes(10,byteorder="big")
+            self.zip_name_size = tmp.to_bytes(4,byteorder="big")
+            self.zip_name = "x".encode("utf-8")
+
 
 
 def GetFileMd5(filepath):
@@ -28,14 +64,19 @@ def GetFileMd5(filepath):
     return myhash.hexdigest()
 ######## 获取MD5码
 
-def transportFile(sock, f, source):
-    absolute = Path(source).parent.joinpath(f)  # 本地可访问文件路径
+def transportFile(sock, f, fInfo,zipFlag):
+    if zipFlag==0:
+        absolute = fInfo.absolute
+    else:
+        absolute = str(fInfo.absolute)+".zip"
 
-    header = getHeader(f, absolute)  # 生成头部
-    sock.send(header[0])  # 传输文件名大小
-    sock.send(header[1])  # 传输文件名
-    sock.send(header[2])  # 传输文件大小 
-    sock.send(header[3])    ### 传输md5码
+    sock.send(fInfo.file_name_size)  # 传输文件名大小
+    sock.send(fInfo.file_name)  # 传输文件名
+    sock.send(fInfo.file_size)  # 传输文件大小
+    sock.send(fInfo.file_md5)    ### 传输md5码
+    sock.send(fInfo.zip_name_size) #传输压缩名大小
+    sock.send(fInfo.zip_name) #传输压缩文件名
+    sock.send(fInfo.zipSize) #传输压缩文件大小
     recv_data=sock.recv(1)  ### 这里用于接收文件在对方的存在情况
     ######### recv_data 2|已传  1|追加  0|未穿
     if(int(recv_data)==2):  ###已传
@@ -75,25 +116,24 @@ def getListOfFiles(__s):
                 if __f.is_file()]   # 仅选择文件
 
 
-def getAllZipFiles(__s):
-    __p = Path(__s)
-    if __p.is_file() and __p.match("*.zip"):
-        return [__p.name]  # 如果是文件则直接返回单元素列表
-    else:
-        return [__f.parent.relative_to(__p.parent).joinpath(__f.name)  # 将文件名加上文件夹的相对路径
-            for __f in __p.rglob('*.zip')  # 选择所有文件和文件夹
-                if __f.is_file()]  # 仅选择文件
-
 if __name__ == '__main__':
+    zipFlag = 0
+    total_File_info = []
     source = sys.argv[1]
     remoteAddr = sys.argv[2]
     remotePort = int(sys.argv[3])
+    if len(sys.argv)==5:
+        zipFlag=1
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # 建立TCP连接
     s.connect((remoteAddr, remotePort))  # 发起连接
-    relative_files = getListOfFiles(source)  # 获得所有需要发送的所有文件
+    s.send(str(zipFlag).encode("utf-8"))
+    relative_files = getListOfFiles(source)  # 获得所有需要发送的所有原始文件
 
     for f in relative_files:
-        transportFile(s, f, source)
+        CreateZipFile(f,source)
+        fInfo = FileInfo(f,source)
+        transportFile(s, f, fInfo,zipFlag)
+        os.remove(getAbsolutePath(f,source))
     endByte = 0
     endFlag=endByte.to_bytes(4, byteorder="big")
     s.send(endFlag)

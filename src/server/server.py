@@ -3,6 +3,7 @@ import sys
 import os
 from pathlib import Path
 import hashlib
+import  zipfile
 
 # 接受方
 # 使用示例：python3 server.py /root 0.0.0.0 1234
@@ -11,6 +12,12 @@ import hashlib
 # argv[3]: 1234 是监听端口
 # Ctrl+C 退出程序
 #########与client段同一个方法
+
+def unzip(srcFile,dstDir):
+    fz = zipfile.ZipFile(srcFile, 'r')
+    for f in fz.namelist():
+        fz.extract(f, dstDir)
+
 def GetFileMd5(filepath):
     # 获取文件的md5
     myhash = hashlib.md5()
@@ -23,7 +30,7 @@ def GetFileMd5(filepath):
     f.close()
     return myhash.hexdigest()
 ##########返回32位
-def recv_data(sock, save_location):
+def recv_data(sock, save_location,zipFlag):
     buffer = sock.recv(4)  # 获取文件名大小
     if buffer:
         file_name_size = int.from_bytes(buffer, byteorder="big")  # 获取文件名大小
@@ -34,6 +41,12 @@ def recv_data(sock, save_location):
         file_size = int.from_bytes(sock.recv(10), byteorder="big")  # 获取文件大小
         file_md5=sock.recv(32).decode('utf-8')# 获取文件MD5码
         print(f'file new name is {relative_path}, filesize is {file_size}')
+
+        zipbuffer = sock.recv(4)
+        zipFileNameSize = int.from_bytes(zipbuffer, byteorder="big")
+        zipFileName = sock.recv(zipFileNameSize).decode("utf-8")
+        zipFileSize = int.from_bytes(sock.recv(10), byteorder="big")
+
         # 获得保存位置到文件夹的路径
         # 如果文件夹所在不存在则创建(类似mkdir -p)
         if "\\" in save_location:
@@ -42,7 +55,10 @@ def recv_data(sock, save_location):
             os.sep.join(save_location.split("/"))
 
         save_path = Path(save_location).joinpath(relative_path)
-        save_path_download=Path(save_location).joinpath(relative_path+".download")#### 尚未传输完成的文件尾部都是.download
+        if zipFlag==0:
+            save_path_download=Path(save_location).joinpath(relative_path+".download")#### 尚未传输完成的文件尾部都是.download
+        else:
+            save_path_download = Path(save_location).joinpath(zipFileName + ".download")
         Path(save_path.parent).mkdir(parents=True, exist_ok=True)
         if(os.path.exists(save_path)):###存在 return结束此次传输,发送回去的2也会使客户端结束传输
             if(os.path.getsize(save_path)==file_size and GetFileMd5(save_path)==file_md5):
@@ -65,6 +81,9 @@ def recv_data(sock, save_location):
         else:
             exist_flag="0"
             sock.send(exist_flag.encode('utf-8'))
+            if zipFlag==1:
+                save_path = zipFileName
+                file_size=zipFileSize
             print("status:0",save_path,": begin receiving")
             fp = open(save_path_download, 'wb')
             recvd_size = 0
@@ -77,7 +96,11 @@ def recv_data(sock, save_location):
         fp.write(data)
         fp.close()
         os.rename(save_path_download,save_path)
+        if zipFlag==1:
+            unzip(save_path,os.path.split(save_path)[0])
+            os.remove(save_path)
         print(f"file saved to {save_path}")
+
         return 1
             
 
@@ -97,8 +120,9 @@ if __name__ == '__main__':
             print('wait for connection......')
             sock, addr = s.accept()  # 获得接收数据使用的套接字
             print(f"accept new connection from {addr}")
+            zipFlag= sock.recv(1).decode("utf-8")
             while True:
-                current = recv_data(sock, save_location)
+                current = recv_data(sock, save_location,zipFlag)
                 if current==-1:
                     sock.close()
                     break
