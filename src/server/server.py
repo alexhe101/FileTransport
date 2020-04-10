@@ -27,12 +27,20 @@ def recv_data(sock, save_location):
     buffer = sock.recv(4)  # 获取文件名大小
     if buffer:
         file_name_size = int.from_bytes(buffer, byteorder="big")  # 获取文件名大小
+        if file_name_size==0:#表示一次文件夹的传输结束
+            return -1
+
         relative_path = sock.recv(file_name_size).decode('utf=8')  # 获取文件名
         file_size = int.from_bytes(sock.recv(10), byteorder="big")  # 获取文件大小
         file_md5=sock.recv(32).decode('utf-8')# 获取文件MD5码
         print(f'file new name is {relative_path}, filesize is {file_size}')
         # 获得保存位置到文件夹的路径
         # 如果文件夹所在不存在则创建(类似mkdir -p)
+        if "\\" in save_location:
+            os.sep.join(save_location.split("\\"))
+        elif "/" in save_location:
+            os.sep.join(save_location.split("/"))
+
         save_path = Path(save_location).joinpath(relative_path)
         save_path_download=Path(save_location).joinpath(relative_path+".download")#### 尚未传输完成的文件尾部都是.download
         Path(save_path.parent).mkdir(parents=True, exist_ok=True)
@@ -70,6 +78,7 @@ def recv_data(sock, save_location):
         fp.close()
         os.rename(save_path_download,save_path)
         print(f"file saved to {save_path}")
+        return 1
             
 
 
@@ -82,18 +91,20 @@ if __name__ == '__main__':
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     s.bind((listen_addr, listen_port))
-    #try:
-    if(1):
-        s.listen(1)
-        print('wait for connection......')
-        sock, addr = s.accept()  # 获得接收数据使用的套接字
-        print(f"accept new connection from {addr}")
-        try:
+    s.listen(1)
+    try:
+        while True:
+            print('wait for connection......')
+            sock, addr = s.accept()  # 获得接收数据使用的套接字
+            print(f"accept new connection from {addr}")
             while True:
-                recv_data(sock, save_location)
-        except KeyboardInterrupt:
-            print('quiting')
+                current = recv_data(sock, save_location)
+                if current==-1:
+                    sock.close()
+                    break
+    except KeyboardInterrupt:
+        print('quiting')
+    except ConnectionResetError:
+        print("远程连接终止")
     s.close()
-    #except ConnectionResetError:
-        #print("远程连接终止")
 
