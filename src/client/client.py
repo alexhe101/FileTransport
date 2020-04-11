@@ -81,9 +81,11 @@ def transportFile(sock, f, fInfo, zipFlag):
     recv_data = sock.recv(1)  ### 这里用于接收文件在对方的存在情况
     ######### recv_data 2|已传  1|追加  0|未传
     if (int(recv_data) == 2):  ###已传
+        print(f"this file {absolute} already in server")
         return
     if (int(recv_data) == 1):  ###追加
         recv_data = int.from_bytes(sock.recv(10), byteorder="big")  ### 获取
+        print(f"断点续传{absolute}")
         fp = open(absolute, 'rb')
         fp.read(recv_data)
     if (int(recv_data) == 0):  ### 包括两种情况新文件或者更新覆盖,但都是直接发送整个文件
