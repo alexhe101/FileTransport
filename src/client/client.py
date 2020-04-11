@@ -39,8 +39,8 @@ class FileInfo():
         self.file_md5=GetFileMd5(Path(self.absolute)).encode('utf-8')
 
         if os.path.exists(str(self.absolute)+".zip"):
-            self.zip_name_size = len(str(self.absolute)+".zip").to_bytes(4, byteorder="big")
             self.zip_name = (str(f)+".zip").encode("utf-8")
+            self.zip_name_size = len(self.zip_name).to_bytes(4, byteorder="big")
             self.zipSize = os.path.getsize(str(self.absolute)+".zip").to_bytes(
         10, byteorder="big")
         else:
@@ -133,7 +133,7 @@ if __name__ == '__main__':
         CreateZipFile(f,source)
         fInfo = FileInfo(f,source)
         transportFile(s, f, fInfo,zipFlag)
-        os.remove(getAbsolutePath(f,source))
+        os.remove(getAbsolutePath(f,source)+".zip")
     endByte = 0
     endFlag=endByte.to_bytes(4, byteorder="big")
     s.send(endFlag)

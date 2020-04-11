@@ -44,17 +44,19 @@ def recv_data(sock, save_location,zipFlag):
 
         zipbuffer = sock.recv(4)
         zipFileNameSize = int.from_bytes(zipbuffer, byteorder="big")
+        print(zipFileNameSize)
         zipFileName = sock.recv(zipFileNameSize).decode("utf-8")
+        print(len(zipFileName))
         zipFileSize = int.from_bytes(sock.recv(10), byteorder="big")
 
         # 获得保存位置到文件夹的路径
         # 如果文件夹所在不存在则创建(类似mkdir -p)
         if "\\" in save_location:
-            os.sep.join(save_location.split("\\"))
+            save_location=os.sep.join(save_location.split("\\"))
         elif "/" in save_location:
-            os.sep.join(save_location.split("/"))
-
+            save_location=os.sep.join(save_location.split("/"))
         save_path = Path(save_location).joinpath(relative_path)
+        zipFilePath = Path(save_location).joinpath(zipFileName)
         if zipFlag==0:
             save_path_download=Path(save_location).joinpath(relative_path+".download")#### 尚未传输完成的文件尾部都是.download
         else:
@@ -65,7 +67,7 @@ def recv_data(sock, save_location,zipFlag):
                 exist_flag="2"
                 print("status:2. ",save_path,": File exists")
                 sock.send(exist_flag.encode('utf-8'))
-                return 
+                return 1
             else:###### 和发送的文件不一样,覆盖
                # print("old_md5 is:"+GetFileMd5(save_path)+" but new is: "+file_md5)
                 os.remove(save_path)
@@ -82,9 +84,10 @@ def recv_data(sock, save_location,zipFlag):
             exist_flag="0"
             sock.send(exist_flag.encode('utf-8'))
             if zipFlag==1:
-                save_path = zipFileName
+                save_path = zipFilePath
                 file_size=zipFileSize
             print("status:0",save_path,": begin receiving")
+            print(save_path_download)
             fp = open(save_path_download, 'wb')
             recvd_size = 0
         ##### 判断完毕,开始接收了!
@@ -97,7 +100,7 @@ def recv_data(sock, save_location,zipFlag):
         fp.close()
         os.rename(save_path_download,save_path)
         if zipFlag==1:
-            unzip(save_path,os.path.split(save_path)[0])
+            unzip(save_path,save_location)
             os.remove(save_path)
         print(f"file saved to {save_path}")
 
@@ -120,7 +123,7 @@ if __name__ == '__main__':
             print('wait for connection......')
             sock, addr = s.accept()  # 获得接收数据使用的套接字
             print(f"accept new connection from {addr}")
-            zipFlag= sock.recv(1).decode("utf-8")
+            zipFlag= int(sock.recv(1).decode("utf-8"))
             while True:
                 current = recv_data(sock, save_location,zipFlag)
                 if current==-1:
