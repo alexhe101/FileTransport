@@ -20,15 +20,16 @@ def main():
         print(f"listening at {addr}:{port}")
 
         # 接收数据
-        while True:
-            conn, remote = sock.accept()
-            print(f"{remote} accepted")
-            while recv_file(conn, path):
-                pass
-            print(f"{remote} fininshed")
-            conn.close()
-    except ConnectionResetError:
-        print("remote closed")
+        try:
+            while True:
+                conn, remote = sock.accept()
+                print(f"{remote} accepted")
+                while recv_file(conn, path):
+                    pass
+                print(f"{remote} fininshed")
+                conn.close()
+        except ConnectionResetError:
+            print("connection reset")
     except KeyboardInterrupt:
         print('manual exit')
     sock.close()

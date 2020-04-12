@@ -22,10 +22,12 @@ def main():
             send_file(sock, xfile(f[0], f[1], compress=compress))
         # 发送结束位
         sock.send(int(0).to_bytes(4, byteorder='big'))
-        sock.close()
         print('connection closed')
+    except ConnectionRefusedError:
+        print('connecttion refused')
     except KeyboardInterrupt:
         print('manual exit')
+    sock.close()
 
 
 def rread(path):
