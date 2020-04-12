@@ -33,17 +33,6 @@ def main():
         print('manual exit')
     sock.close()
 
-
-def aread(path):
-    data = bytearray()
-    with open(path, 'rb') as f:
-        buff = f.read(65535)
-        while buff:
-            data.append(buff)
-            buff = f.read(65535)
-    return bytes(data)
-
-
 def recv_file(conn, path):
     name_size = conn.recv(4)
     if name_size:
@@ -72,7 +61,7 @@ def recv_file(conn, path):
             shift = temp.stat().st_size
             mode = 'ab'
         elif save.exists():
-            if md5 == hashlib.md5(aread(save)).digest():  # 已有
+            if md5 == hashlib.md5(save.read_bytes()).digest():  # 已有
                 shift = 0xffffffffffffffff
                 print("identical file exists, remote ignored")
             else:  # 更新
@@ -94,11 +83,8 @@ def recv_file(conn, path):
                 data_size -= 1024
             out.write(conn.recv(data_size))
         # 解压缩并保存文件
-        data = aread(temp)
-        if compress:
-            data = zlib.decompress(data)
-        with open(save, 'wb') as out:
-            out.write(data)
+        save.write_bytes(zlib.decompress(temp.read_bytes())
+                         if compress else temp.read_bytes())
         os.remove(temp)
         print('file received')
     return True

@@ -25,20 +25,10 @@ def main():
     print('connection closed')
 
 
-def aread(path):
-    data = bytearray()
-    with open(path, 'rb') as f:
-        buff = f.read(65535)
-        while buff:
-            data.append(buff)
-            buff = f.read(65535)
-    return bytes(data)
-
-
 def rread(path):
     path = Path(os.path.normpath((Path(path).absolute())))
-    return [[path.name, aread(path)]] if path.is_file()\
-        else [[item.relative_to(path.parent), aread(item)]
+    return [[path.name, path.read_bytes()]] if path.is_file()\
+        else [[item.relative_to(path.parent), item.read_bytes()]
               for item in path.rglob('*')
               if item.is_file()]
 
