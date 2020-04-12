@@ -1,12 +1,7 @@
 package application;
 	
-//import java.awt.TextArea;
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.nio.charset.Charset;
-
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
 import javafx.stage.Stage;
@@ -60,6 +55,7 @@ public class Main extends Application {
 				if(file==null) return;
 				Data.filestring=file.getAbsolutePath();
 				fileout.setText(Data.filestring);
+				//data.clear();
 				//System.out.println(file.getAbsolutePath());
 			});
 			
@@ -68,7 +64,19 @@ public class Main extends Application {
 				Data.ip=field1.getText();
 				Data.port=field2.getText();
 				Data.cmdorder=Data.str1+Data.filestring+" "+Data.ip+" "+Data.port;
-				try {
+				Listenbackinformation lis=new Listenbackinformation();
+				lis.mystart(systemout, data, str);
+				//lis.run();
+				lis.start();
+				systemout.setText("请等待文件传输完成");
+				//lis.run();
+				/*try {
+					lis.join();
+				} catch (InterruptedException e1) {
+					// TODO Auto-generated catch block
+					e1.printStackTrace();
+				}*/
+				/*try {
 					Process ps =Runtime.getRuntime().exec(Data.cmdorder,null,data.getfile(str));
 					BufferedReader br = new BufferedReader(new InputStreamReader(ps.getInputStream(), Charset.forName("GBK")));
 					String dialog=null;
@@ -80,15 +88,19 @@ public class Main extends Application {
 						systemout.setText(line);
 					}
 					
-					/*else
-					{
-						systemout.setText("传输失败，请重试");
-					}*/
 				} catch (IOException e1) {
 					// TODO Auto-generated catch block
 					e1.printStackTrace();
-				}
-				data.clear();
+				}*/
+				/*while(true)
+				{
+					if(Data.flag==1)
+					{
+						
+						break;
+					}
+				}*/
+				//data.clear();
 			});
 			
 			transport_zip.setOnAction(e ->{
@@ -96,13 +108,19 @@ public class Main extends Application {
 				Data.ip=field1.getText();
 				Data.port=field2.getText();
 				Data.cmdorder=Data.str1+Data.filestring+" "+Data.ip+" "+Data.port+" zip";
-				try {
+				Listenbackinformation lis=new Listenbackinformation();
+				lis.mystart(systemout, data, str);
+				//lis.run();
+				lis.start();
+				systemout.setText("请等待文件传输完成");
+				/*try {
 					Runtime.getRuntime().exec(Data.cmdorder,null,data.getfile(str));
+					//Process ps =Runtime.getRuntime().exec(Data.cmdorder,null,data.getfile(str));
 				} catch (IOException e1) {
 					// TODO Auto-generated catch block
 					e1.printStackTrace();
 				}
-				data.clear();
+				data.clear();*/
 			});
 			
 			scene.getStylesheets().add(getClass().getResource("application.css").toExternalForm());
