@@ -7,19 +7,19 @@ import os  # using os.remove()
 
 
 def main():
-    # 获取目录、地址、端口
-    path = sys.argv[1]
-    addr = sys.argv[2]
-    port = int(sys.argv[3])
-    # 接受连接
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    sock.bind((addr, port))
-    sock.listen(1)
-    print(f"listening at {addr}:{port}")
-
-    # 接收数据
     try:
+        # 获取目录、地址、端口
+        path = sys.argv[1]
+        addr = sys.argv[2]
+        port = int(sys.argv[3])
+        # 接受连接
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind((addr, port))
+        sock.listen(1)
+        print(f"listening at {addr}:{port}")
+
+        # 接收数据
         while True:
             conn, remote = sock.accept()
             print(f"{remote} accepted")
@@ -32,6 +32,7 @@ def main():
     except KeyboardInterrupt:
         print('manual exit')
     sock.close()
+
 
 def recv_file(conn, path):
     name_size = conn.recv(4)
@@ -70,7 +71,7 @@ def recv_file(conn, path):
         conn.send(shift.to_bytes(8, byteorder='big'))
         # 跳过已有
         if shift == 0xffffffffffffffff:
-            return
+            return True
         # 创建路径文件夹、写入临时文件
         Path(temp.parent).mkdir(parents=True, exist_ok=True)
         with temp.open(mode) as out:

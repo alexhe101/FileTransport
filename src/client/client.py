@@ -7,22 +7,25 @@ import hashlib  # using hashlib.md5()
 
 
 def main():
-    # 获取文件、地址、端口、压缩标志
-    path = sys.argv[1]
-    addr = sys.argv[2]
-    port = int(sys.argv[3])
-    compress = len(sys.argv) == 5
-    # 发起连接
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.connect((addr, port))
-    print(f"connected to {addr}:{port}")
-    # 加载所有文件及名称,发送文件
-    for f in rread(path):
-        send_file(sock, xfile(f[0], f[1], compress=compress))
-    # 发送结束位
-    sock.send(int(0).to_bytes(4, byteorder='big'))
-    sock.close()
-    print('connection closed')
+    try:
+        # 获取文件、地址、端口、压缩标志
+        path = sys.argv[1]
+        addr = sys.argv[2]
+        port = int(sys.argv[3])
+        compress = len(sys.argv) == 5
+        # 发起连接
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.connect((addr, port))
+        print(f"connected to {addr}:{port}")
+        # 加载所有文件及名称,发送文件
+        for f in rread(path):
+            send_file(sock, xfile(f[0], f[1], compress=compress))
+        # 发送结束位
+        sock.send(int(0).to_bytes(4, byteorder='big'))
+        sock.close()
+        print('connection closed')
+    except KeyboardInterrupt:
+        print('manual exit')
 
 
 def rread(path):
@@ -43,26 +46,26 @@ class xfile():
         self.compress = compress
 
 
-def send_file(sock, f):
+def send_file(sock, path):
     # 发送文件名长度、文件名、摘要和压缩标志
-    sock.send(f.name_size.to_bytes(4, byteorder='big'))
-    sock.send(f.name.encode('utf-8'))
-    sock.send(f.md5.digest())
-    sock.send((1 if f.compress else 0).to_bytes(1, byteorder='big'))
-    print(f"file: {f.name}, compress:{f.compress}, {f.data_size} Bytes")
+    sock.send(path.name_size.to_bytes(4, byteorder='big'))
+    sock.send(path.name.encode('utf-8'))
+    sock.send(path.md5.digest())
+    sock.send((1 if path.compress else 0).to_bytes(1, byteorder='big'))
+    print(f"file: {path.name}, compress:{path.compress}, {path.data_size} Bytes")
     # 获取响应：最大值跳过，其余从指定位置开始传输
     shift = int.from_bytes(sock.recv(8), byteorder='big')
-    if (shift != 0xffffffffffffffff):
-        print(f"sending from {shift if shift!=0 else 'start'}")
-        # 发送剩余数据长度
-        sock.send((f.data_size-shift).to_bytes(8, byteorder='big'))
-        while shift + 1024 < len(f.data):
-            sock.send(f.data[shift:shift+1024])
-            shift += 1024
-        sock.send(f.data[shift:])
-        print("file sent")
-    else:
+    if (shift == 0xffffffffffffffff):
         print(f"remote file exists, ignored")
+        return
+    print(f"sending from {shift if shift!=0 else 'start'}")
+    # 发送剩余数据长度
+    sock.send((path.data_size-shift).to_bytes(8, byteorder='big'))
+    while shift + 1024 < len(path.data):
+        sock.send(path.data[shift:shift+1024])
+        shift += 1024
+    sock.send(path.data[shift:])
+    print("file sent")
 
 
 if __name__ == '__main__':
