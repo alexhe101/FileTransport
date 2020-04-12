@@ -17,11 +17,21 @@ def main():
     sock.bind((addr, port))
     sock.listen(1)
     print(f"server listening at {addr}:{port}, files will be saved to {path}")
-    conn, remote = sock.accept()
-    print(f"accepting files from {remote}")
+
     # 接收数据
-    while recv_file(conn, path):
-        pass
+    try:
+        while True:
+            conn, remote = sock.accept()
+            print(f"accepting files from {remote}")
+            while recv_file(conn, path):
+                pass
+            print(f"connection from {remote} fininshed")
+            conn.close()
+    except ConnectionResetError:
+        print("remote closed")
+    except KeyboardInterrupt:
+        print('manual exiting')
+    sock.close()
 
 
 def recv_file(sock, path):
@@ -30,10 +40,13 @@ def recv_file(sock, path):
         # 接收文件名长度
         name_size = int.from_bytes(name_size, byteorder='big')
         if(name_size == 0):
-            print("quit receiving")
             return False
         # 接受文件名和文件摘要
         name = sock.recv(name_size).decode('utf-8')
+        if "\\" in name:
+            name = os.sep.join(name.split("\\"))
+        elif "/" in name:
+            name = os.sep.join(name.split("/"))
         md5 = sock.recv(16)
         print(f"file: {name},md5: {md5.hex()}")
         # 中间文件和最终文件
@@ -46,6 +59,12 @@ def recv_file(sock, path):
             sock.send(temp.stat().st_size.to_bytes(10, byteorder='big'))
             mode = 'ab'
         elif save.exists():
+            localmd5 = hashlib.md5()
+            with open(save, 'rb') as local:
+                buf = local.read(1024)
+                while buf:
+                    buf = local.read(1024)
+                    localmd5.update(buf)
             if md5 == hashlib.md5(save.open('rb').read()).digest():  # 跳过已有
                 sock.send(int(0xffffffffffffffff).to_bytes(
                     10, byteorder='big'))
@@ -53,7 +72,9 @@ def recv_file(sock, path):
                 return True
             else:  # 更新文件
                 print("different file found in local, updating from remote")
-        sock.send(int(0).to_bytes(10, byteorder='big'))
+                sock.send(int(0).to_bytes(10, byteorder='big'))
+        else:
+            sock.send(int(0).to_bytes(10, byteorder='big'))
         Path(temp.parent).mkdir(parents=True, exist_ok=True)
         # 写入临时文件
         with temp.open(mode) as out:
@@ -62,15 +83,16 @@ def recv_file(sock, path):
             data_size = int.from_bytes(sock.recv(10), byteorder='big')
             print(f"downloading {data_size} Bytes, compress={compress}")
             # 创建、覆盖或追加文件
-            while data_size > 20480:
-                out.write(sock.recv(20480))
-                data_size -= 20480
+            while data_size > 1024:
+                out.write(sock.recv(1024))
+                data_size -= 1024
             out.write(sock.recv(data_size))
         # 解压缩并保存文件
         data = temp.open('rb').read()
         if compress:
-            data = zlib.decompress(data)
-        save.open('wb').write(data)
+            data = zlib.decompressobj().decompress(data)
+        with open(save, 'wb') as out:
+            out.write(data)
         os.remove(temp)
         print('file saved')
     return True

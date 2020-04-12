@@ -12,17 +12,17 @@ def main():
     addr = sys.argv[2]
     port = int(sys.argv[3])
     compress = (len(sys.argv) == 5)
-    print(f"remote: {addr}:{port}")
     # 发起连接
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.connect((addr, port))
-    print(f"remote connected, sending files from {path}")
+    print(f"remote: {addr}:{port}, sending files from {path}")
     # 加载所有文件及名称,发送文件
     for f in rread(path):
         send_file(sock, xfile(f[0], f[1], compress=compress))
     # 发送结束位
     sock.send(int(0).to_bytes(4, byteorder='big'))
-    print("all files sent")
+    sock.close()
+    print("all sent")
 
 
 def rread(path):
@@ -52,10 +52,12 @@ def send_file(sock, f):
     # 获取响应：最大值跳过，其余从指定位置开始传输
     shift = int.from_bytes(sock.recv(10), byteorder='big')
     if (shift != 0xffffffffffffffff):
-        print(f"sending from Byte {shift}")
         # 发送压缩标志和剩余数据长度
         sock.send(int(f.compress).to_bytes(1, byteorder='big'))
         sock.send((f.data_size-shift).to_bytes(10, byteorder='big'))
+        while shift + 1024 < len(f.data):
+            sock.send(f.data[shift:shift+1024])
+            shift += 1024
         sock.send(f.data[shift:])
     else:
         print(f"remote file exists, ignored")
