@@ -62,9 +62,9 @@ def recv_file(sock, path):
             data_size = int.from_bytes(sock.recv(10), byteorder='big')
             print(f"downloading {data_size} Bytes, compress={compress}")
             # 创建、覆盖或追加文件
-            while data_size > 1024:
-                out.write(sock.recv(1024))
-                data_size -= 1024
+            while data_size > 20480:
+                out.write(sock.recv(20480))
+                data_size -= 20480
             out.write(sock.recv(data_size))
         # 解压缩并保存文件
         data = temp.open('rb').read()
