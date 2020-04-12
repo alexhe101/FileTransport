@@ -22,7 +22,6 @@ def main():
     # 接收数据
     while recv_file(conn, path):
         pass
-    sock.close()
 
 
 def recv_file(sock, path):

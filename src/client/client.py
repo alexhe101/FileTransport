@@ -56,9 +56,6 @@ def send_file(sock, f):
         # 发送压缩标志和剩余数据长度
         sock.send(int(f.compress).to_bytes(1, byteorder='big'))
         sock.send((f.data_size-shift).to_bytes(10, byteorder='big'))
-        while shift + 1024 < len(f.data):
-            sock.send(f.data[shift:shift+1024])
-            shift += 1024
         sock.send(f.data[shift:])
     else:
         print(f"remote file exists, ignored")
