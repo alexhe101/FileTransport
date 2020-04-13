@@ -6,6 +6,7 @@ import zlib  # using zlib.decompress()
 import os  # using os.remove()
 
 
+
 def main():
     try:
         # 获取目录、地址、端口
@@ -20,16 +21,18 @@ def main():
         print(f"listening at {addr}:{port}")
 
         # 接收数据
-        try:
-            while True:
-                conn, remote = sock.accept()
-                print(f"{remote} accepted")
-                while recv_file(conn, path):
-                    pass
-                print(f"{remote} fininshed")
-                conn.close()
-        except ConnectionResetError:
-            print("connection reset")
+        while True:
+            try:
+                while True:
+                    print("waiting for connection...")
+                    conn, remote = sock.accept()
+                    print(f"{remote} accepted")
+                    while recv_file(conn, path):
+                        pass
+                    print(f"{remote} fininshed")
+                    conn.close()
+            except ConnectionResetError:
+                print("connection reset")
     except KeyboardInterrupt:
         print('manual exit')
     sock.close()
