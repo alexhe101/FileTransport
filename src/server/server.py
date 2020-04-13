@@ -55,16 +55,18 @@ def recv_data(sock, save_location, zipFlag):
 
         # 获得保存位置到文件夹的路径
         # 如果文件夹所在不存在则创建(类似mkdir -p)
-        if "\\" in save_location:
-            save_location = os.sep.join(save_location.split("\\"))
-        elif "/" in save_location:
-            save_location = os.sep.join(save_location.split("/"))
+        if "\\" in relative_path:
+            relative_path = os.sep.join(relative_path.split("\\"))
+
+        elif "/" in relative_path:
+            relative_path = os.sep.join(relative_path.split("/"))
         save_path = Path(save_location).joinpath(relative_path)
         zipFilePath = Path(save_location).joinpath(zipFileName)
         if zipFlag == 0:
             save_path_download = Path(save_location).joinpath(relative_path + ".download")  #### 尚未传输完成的文件尾部都是.download
         else:
             save_path_download = Path(save_location).joinpath(zipFileName + ".download")
+        print(save_location)
         Path(save_path.parent).mkdir(parents=True, exist_ok=True)
         if (os.path.exists(save_path)):  ###存在 return结束此次传输,发送回去的2也会使客户端结束传输
             if (os.path.getsize(save_path) == file_size and GetFileMd5(save_path) == file_md5):
@@ -109,6 +111,7 @@ def recv_data(sock, save_location, zipFlag):
         print(f"file saved to {save_path}")
 
         return 1
+
 
 
 if __name__ == '__main__':
