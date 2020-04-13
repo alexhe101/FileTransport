@@ -55,10 +55,10 @@ def recv_data(sock, save_location, zipFlag):
         exist_flag=0
         # 获得保存位置到文件夹的路径
         # 如果文件夹所在不存在则创建(类似mkdir -p)
-        if "\\" in save_location:
-            save_location = os.sep.join(save_location.split("\\"))
+        if "\\" in relative_path:
+            relative_path = os.sep.join(relative_path.split("\\"))
         elif "/" in save_location:
-            save_location = os.sep.join(save_location.split("/"))
+            relative_path = os.sep.join(relative_path.split("/"))
         save_path = Path(save_location).joinpath(relative_path)
         zipFilePath = Path(save_location).joinpath(zipFileName)
         if zipFlag == 0:
