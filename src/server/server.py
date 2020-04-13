@@ -6,7 +6,6 @@ import zlib  # using zlib.decompress()
 import os  # using os.remove()
 
 
-
 def main():
     try:
         # 获取目录、地址、端口
@@ -18,19 +17,17 @@ def main():
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.bind((addr, port))
         sock.listen(1)
-        print(f"listening at {addr}:{port}")
 
         # 接收数据
         while True:
             try:
-                while True:
-                    print("waiting for connection...")
-                    conn, remote = sock.accept()
-                    print(f"{remote} accepted")
-                    while recv_file(conn, path):
-                        pass
-                    print(f"{remote} fininshed")
-                    conn.close()
+                print(f"listening at {addr}:{port}")
+                conn, remote = sock.accept()
+                print(f"{remote} accepted")
+                while recv_file(conn, path):
+                    pass
+                print(f"{remote} fininshed")
+                conn.close()
             except ConnectionResetError:
                 print("connection reset")
     except KeyboardInterrupt:
@@ -84,7 +81,10 @@ def recv_file(conn, path):
             print(f"downloading {data_size} Bytes")
             # 创建、覆盖或追加文件
             while data_size > 1024:
-                out.write(conn.recv(1024))
+                data = conn.recv(1024)
+                if len(data) == 0:                # 客户端ctrl c退出时，服务器端检测到主动抛出异常
+                    raise ConnectionResetError
+                out.write(data)
                 data_size -= 1024
             out.write(conn.recv(data_size))
         # 解压缩并保存文件
