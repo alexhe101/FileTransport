@@ -1,73 +1,69 @@
-import sys  # using sys.argv
-from pathlib import Path  # using Path.rglob()
-import os  # using os.path.normpath()
-import socket  # using socket.socket()
-import zlib  # using zlib.compress()
-import hashlib  # using hashlib.md5()
+import sys
+from pathlib import Path
+import os
+import socket
+import zlib
+import hashlib
 
 
 def main():
-    try:
-        # 获取文件、地址、端口、压缩标志
-        path = sys.argv[1]
-        addr = sys.argv[2]
-        port = int(sys.argv[3])
-        compress = len(sys.argv) == 5
-        # 发起连接
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.connect((addr, port))
-        print(f"connected to {addr}:{port}")
-        # 加载所有文件及名称,发送文件
-        for f in rread(path):
-            send_file(sock, xfile(f[0], f[1], compress=compress))
-        # 发送结束位
-        sock.send(int(0).to_bytes(4, byteorder='big'))
-        print('connection closed')
-    except ConnectionRefusedError:
-        print('connecttion refused')
-    except KeyboardInterrupt:
-        print('manual exit')
+    path = sys.argv[1]
+    addr = sys.argv[2]
+    port = int(sys.argv[3])
+    compress = len(sys.argv) == 5
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.connect((addr, port))
+    print(f"connected to {addr}:{port}")
+    for f in file_glob(path):
+        send_file(sock, named_file(f[0], f[1], compress))
+    sock.send(int(0).to_bytes(4, byteorder='big'))
     sock.close()
+    print(f"connection closed")
 
 
-def rread(path):
+def file_glob(path):
     path = Path(os.path.normpath((Path(path).absolute())))
-    return [[path.name, path.read_bytes()]] if path.is_file()\
-        else [[item.relative_to(path.parent), item.read_bytes()]
-              for item in path.rglob('*')
-              if item.is_file()]
+    return [[path.name, path]] if path.is_file()\
+        else [[str(item.relative_to(path.parent)), item]
+              for item in path.rglob('*') if item.is_file()]
 
 
-class xfile():
-    def __init__(self, path, data, compress=False):
-        self.name = str(path)
-        self.md5 = hashlib.md5(data)
-        self.data = zlib.compress(data) if compress else data
+class named_file():
+    def __init__(self, name, path, compress=False):
+        self.name = name.replace(os.sep, '/')
         self.name_size = len(self.name.encode('utf-8'))
+        self.data = path.read_bytes()
         self.data_size = len(self.data)
+        self.md5 = hashlib.md5(self.data)
         self.compress = compress
+        if self.compress:
+            self.data = zlib.compress(self.data)
+
+
+def recv_waitall(sock, length):
+    data = bytes()
+    while length > 0:
+        frag = sock.recv(length)
+        length -= len(frag)
+        data = b''.join([data, frag])
+    return data
 
 
 def send_file(sock, path):
-    # 发送文件名长度、文件名、摘要和压缩标志
+    print(
+        f"sending info: {path.name}, {path.data_size}bytes{', zlib' if path.compress else ''}")
     sock.send(path.name_size.to_bytes(4, byteorder='big'))
     sock.send(path.name.encode('utf-8'))
     sock.send(path.md5.digest())
-    sock.send((1 if path.compress else 0).to_bytes(1, byteorder='big'))
-    print(f"file: {path.name}, compress:{path.compress}, {path.data_size} Bytes")
-    # 获取响应：最大值跳过，其余从指定位置开始传输
-    shift = int.from_bytes(sock.recv(8), byteorder='big')
+    sock.send(int(path.compress).to_bytes(1, byteorder='big'))
+    shift = int.from_bytes(recv_waitall(sock, 8), byteorder='big')
     if (shift == 0xffffffffffffffff):
-        print(f"remote file exists, ignored")
+        print('remote exists, skipping')
         return
-    print(f"sending from {shift if shift!=0 else 'start'}")
-    # 发送剩余数据长度
+    print(f"sending data from {'start' if shift==0 else shift}")
     sock.send((path.data_size-shift).to_bytes(8, byteorder='big'))
-    while shift + 1024 < len(path.data):
-        sock.send(path.data[shift:shift+1024])
-        shift += 1024
     sock.send(path.data[shift:])
-    print("file sent")
+    print('file sent')
 
 
 if __name__ == '__main__':
