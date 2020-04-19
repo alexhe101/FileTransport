@@ -1,97 +1,80 @@
-import sys  # using sys.argv
-import socket  # using socket.socket()
-from pathlib import Path  # using Path
-import hashlib  # using hashlib.md5()
-import zlib  # using zlib.decompress()
-import os  # using os.remove()
+import sys
+import socket
+from pathlib import Path
+import hashlib
+import zlib
+import os
 
 
 def main():
-    try:
-        # 获取目录、地址、端口
-        path = sys.argv[1]
-        addr = sys.argv[2]
-        port = int(sys.argv[3])
-        # 接受连接
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        sock.bind((addr, port))
-        sock.listen(1)
-
-        # 接收数据
-        while True:
-            try:
-                print(f"listening at {addr}:{port}")
-                conn, remote = sock.accept()
-                print(f"{remote} accepted")
-                while recv_file(conn, path):
-                    pass
-                print(f"{remote} fininshed")
-                conn.close()
-            except ConnectionResetError:
-                print("connection reset")
-    except KeyboardInterrupt:
-        print('manual exit')
+    path = sys.argv[1]
+    addr = sys.argv[2]
+    port = int(sys.argv[3])
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    sock.bind((addr, port))
+    sock.listen(1)
+    print(f"listening at {addr}:{port}, save into {path}")
+    while True:
+        conn, remote = sock.accept()
+        print(f"{remote} accepted")
+        try:
+            while recv_file(conn, path):
+                pass
+            conn.close()
+            print('remote closed normally')
+        except ConnectionResetError:
+            print('remote connection reset')
     sock.close()
 
 
+def recv_waitall(sock, length):
+    data = bytes()
+    while length > 0:
+        frag = sock.recv(length)
+        length -= len(frag)
+        data = b''.join([data, frag])
+    return data
+
+
 def recv_file(conn, path):
-    name_size = conn.recv(4)
-    if name_size:
-        # 接收文件名长度
-        name_size = int.from_bytes(name_size, byteorder='big')
-        if(name_size == 0):
-            return False
-        # 接受文件名和文件摘要
-        name = conn.recv(name_size).decode('utf-8')
-        if "\\" in name:
-            name = os.sep.join(name.split("\\"))
-        elif "/" in name:
-            name = os.sep.join(name.split("/"))
-        md5 = conn.recv(16)
-        # 接受压缩标志
-        compress = int.from_bytes(conn.recv(1), byteorder='big') == 1
-        print(f"file: {name},md5: {md5.hex()}, compress:{compress}")
-        # 中间文件和最终文件
-        save = Path(path).joinpath(name)
-        temp = Path(path).joinpath(name+'.download')
-        # 断点续传、跳过已有和更新
-        mode = 'wb'
-        shift = 0
-        if temp.exists():  # 断点续传
-            print("continue previous download")
-            shift = temp.stat().st_size
-            mode = 'ab'
-        elif save.exists():
-            if md5 == hashlib.md5(save.read_bytes()).digest():  # 已有
-                shift = 0xffffffffffffffff
-                print("identical file exists, remote ignored")
-            else:  # 更新
-                print("different exists on local, updating from remote")
-        # 反馈偏移
-        conn.send(shift.to_bytes(8, byteorder='big'))
-        # 跳过已有
-        if shift == 0xffffffffffffffff:
-            return True
-        # 创建路径文件夹、写入临时文件
-        Path(temp.parent).mkdir(parents=True, exist_ok=True)
-        with temp.open(mode) as out:
-            # 接收数据长度
-            data_size = int.from_bytes(conn.recv(8), byteorder='big')
-            print(f"downloading {data_size} Bytes")
-            # 创建、覆盖或追加文件
-            while data_size > 1024:
-                data = conn.recv(1024)
-                if len(data) == 0:                # 客户端ctrl c退出时，服务器端检测到主动抛出异常
-                    raise ConnectionResetError
-                out.write(data)
-                data_size -= 1024
-            out.write(conn.recv(data_size))
-        # 解压缩并保存文件
-        save.write_bytes(zlib.decompress(temp.read_bytes())
-                         if compress else temp.read_bytes())
-        os.remove(temp)
-        print('file received')
+    name_size = int.from_bytes(recv_waitall(conn, 4), byteorder='big')
+    if(name_size == 0):
+        return False
+    name = recv_waitall(conn, name_size).decode('utf-8').replace('/', os.sep)
+    save = Path(path).joinpath(name)
+    temp = Path(path).joinpath(name+'.download')
+    check = Path(path).joinpath(name+'.md5')
+    md5 = recv_waitall(conn, 16)
+    compress = int.from_bytes(recv_waitall(conn, 1), byteorder='big')
+    print(f"info: {name}{', zlib' if compress else ''}")
+    mode = 'wb'
+    shift = 0
+    if check.exists() and md5 == check.read_bytes():
+        mode = 'ab'
+        shift = temp.stat().st_size
+        print(f"resuming  previous download at {shift}")
+    if save.exists() and md5 == hashlib.md5(save.read_bytes()).digest():
+        shift = 0xffffffffffffffff
+        print('already exists, skipping')
+    conn.send(shift.to_bytes(8, byteorder='big'))
+    if shift == 0xffffffffffffffff:
+        return True
+    check.parent.mkdir(parents=True, exist_ok=True)
+    check.write_bytes(md5)
+    data_size = int.from_bytes(recv_waitall(conn, 8), byteorder='big')
+    print(f"{data_size}bytes remaining")
+    with temp.open(mode) as out:
+        while data_size > 1024:
+            data = recv_waitall(conn, 1024)
+            out.write(data)
+            data_size -= 1024
+        out.write(recv_waitall(conn, data_size))
+    save.write_bytes(zlib.decompress(temp.read_bytes())
+                     if compress else temp.read_bytes())
+    os.remove(temp)
+    os.remove(check)
+    print('download saved')
     return True
 
 
