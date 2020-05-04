@@ -4,9 +4,12 @@ import os
 import socket
 import zlib
 import hashlib
+import time
 
 
 def main():
+    elapsed = time.time()
+    total = 0
     path = sys.argv[1]
     addr = sys.argv[2]
     port = int(sys.argv[3])
@@ -15,10 +18,15 @@ def main():
     sock.connect((addr, port))
     print(f"connected to {addr}:{port}")
     for f in file_glob(path):
+        total += f[1].stat().st_size
         send_file(sock, named_file(f[0], f[1], compress))
     sock.send(int(0).to_bytes(4, byteorder='big'))
     sock.close()
-    print(f"connection closed")
+    print("connection closed")
+    elapsed = time.time() - elapsed
+    print(f"total size: {total}Bytes,")
+    print(f"elapsed time: {elapsed}s,")
+    print(f"speed: {total/elapsed/1024}KB/s")
 
 
 def file_glob(path):
