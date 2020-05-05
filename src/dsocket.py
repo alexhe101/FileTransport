@@ -13,7 +13,7 @@ def frecv(sock, length, out, progress=True):
         out.write(wrecv(sock, block))
         length -= block
         if progress:
-            print(f"progress: {length}bytes remaining", end='\r')
+            print(f"progress: {length/0x100000}MB remaining", end='\r')
     out.write(wrecv(sock, length))
     if progress:
         print('all received')
@@ -25,7 +25,7 @@ def dsend(sock, data,  shift, progress=True):
         sock.send(data[shift:shift+block])
         shift += block
         if progress:
-            print(f"progress: {shift}bytes sent", end='\r')
+            print(f"progress: {shift/0x100000}MB sent", end='\r')
     sock.send(data[shift:])
     if progress:
         print('all sent')

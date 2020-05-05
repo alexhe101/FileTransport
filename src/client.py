@@ -29,7 +29,7 @@ def main():
     elapsed = time() - elapsed
     print(f"total size: {total}Bytes,")
     print(f"elapsed time: {elapsed}s,")
-    print(f"speed: {total/elapsed/1024}KB/s")
+    print(f"speed: {total/elapsed/0x100000}MB/s")
 
 
 def file_glob(path):
