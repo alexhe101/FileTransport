@@ -40,7 +40,7 @@ def recv_file(conn, path):
     check = Path(path).joinpath(name+'.md5')
     rmd5 = wrecv(conn, 16)
     compress = int.from_bytes(wrecv(conn, 1), byteorder='big')
-    print(f"info: {name}{', zlib' if compress else ''}")
+    print(f"file: {name}{', zlib' if compress else ''}")
     mode = 'wb'
     shift = 0
     if check.exists() and rmd5 == check.read_bytes():
