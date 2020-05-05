@@ -1,19 +1,22 @@
-import sys
-from pathlib import Path
-import os
 import socket
-import zlib
-import hashlib
-import time
+from hashlib import md5
+from os import sep
+from os.path import normpath
+from pathlib import Path
+from sys import argv
+from time import time
+from zlib import compress
+
+from dsocket import dsend, wrecv
 
 
 def main():
-    elapsed = time.time()
+    elapsed = time()
     total = 0
-    path = sys.argv[1]
-    addr = sys.argv[2]
-    port = int(sys.argv[3])
-    compress = len(sys.argv) == 5
+    path = argv[1]
+    addr = argv[2]
+    port = int(argv[3])
+    compress = len(argv) == 5
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.connect((addr, port))
     print(f"connected to {addr}:{port}")
@@ -23,14 +26,14 @@ def main():
     sock.send(int(0).to_bytes(4, byteorder='big'))
     sock.close()
     print("connection closed")
-    elapsed = time.time() - elapsed
+    elapsed = time() - elapsed
     print(f"total size: {total}Bytes,")
     print(f"elapsed time: {elapsed}s,")
     print(f"speed: {total/elapsed/1024}KB/s")
 
 
 def file_glob(path):
-    path = Path(os.path.normpath((Path(path).absolute())))
+    path = Path(normpath((Path(path).absolute())))
     return [[path.name, path]] if path.is_file()\
         else [[str(item.relative_to(path.parent)), item]
               for item in path.rglob('*') if item.is_file()]
@@ -38,23 +41,14 @@ def file_glob(path):
 
 class named_file():
     def __init__(self, name, path, compress=False):
-        self.name = name.replace(os.sep, '/')
+        self.name = name.replace(sep, '/')
         self.name_size = len(self.name.encode('utf-8'))
         self.data = path.read_bytes()
         self.data_size = len(self.data)
-        self.md5 = hashlib.md5(self.data)
+        self.md5 = md5(self.data)
         self.compress = compress
         if self.compress:
-            self.data = zlib.compress(self.data)
-
-
-def recv_wait_all(sock, length):
-    data = bytes()
-    while length > 0:
-        frag = sock.recv(length)
-        length -= len(frag)
-        data = b''.join([data, frag])
-    return data
+            self.data = compress(self.data)
 
 
 def send_file(sock, path):
@@ -64,14 +58,13 @@ def send_file(sock, path):
     sock.send(path.name.encode('utf-8'))
     sock.send(path.md5.digest())
     sock.send(int(path.compress).to_bytes(1, byteorder='big'))
-    shift = int.from_bytes(recv_wait_all(sock, 8), byteorder='big')
+    shift = int.from_bytes(wrecv(sock, 8), byteorder='big')
     if (shift == 0xffffffffffffffff):
         print('remote exists, skipping')
         return
     print(f"sending data from {'start' if shift==0 else shift}")
     sock.send((path.data_size-shift).to_bytes(8, byteorder='big'))
-    sock.send(path.data[shift:])
-    print('file sent')
+    dsend(sock, path.data, shift)
 
 
 if __name__ == '__main__':

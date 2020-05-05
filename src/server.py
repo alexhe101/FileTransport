@@ -1,15 +1,17 @@
-import sys
 import socket
+from hashlib import md5
+from os import remove, sep
 from pathlib import Path
-import hashlib
-import zlib
-import os
+from sys import argv
+from zlib import decompress
+
+from dsocket import frecv, wrecv
 
 
 def main():
-    path = sys.argv[1]
-    addr = sys.argv[2]
-    port = int(sys.argv[3])
+    path = argv[1]
+    addr = argv[2]
+    port = int(argv[3])
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.bind((addr, port))
@@ -28,52 +30,39 @@ def main():
     sock.close()
 
 
-def recv_wait_all(sock, length):
-    data = bytes()
-    while length > 0:
-        frag = sock.recv(length)
-        length -= len(frag)
-        data = b''.join([data, frag])
-    return data
-
-
 def recv_file(conn, path):
-    name_size = int.from_bytes(recv_wait_all(conn, 4), byteorder='big')
+    name_size = int.from_bytes(wrecv(conn, 4), byteorder='big')
     if(name_size == 0):
         return False
-    name = recv_wait_all(conn, name_size).decode('utf-8').replace('/', os.sep)
+    name = wrecv(conn, name_size).decode('utf-8').replace('/', sep)
     save = Path(path).joinpath(name)
     temp = Path(path).joinpath(name+'.download')
     check = Path(path).joinpath(name+'.md5')
-    md5 = recv_wait_all(conn, 16)
-    compress = int.from_bytes(recv_wait_all(conn, 1), byteorder='big')
+    rmd5 = wrecv(conn, 16)
+    compress = int.from_bytes(wrecv(conn, 1), byteorder='big')
     print(f"info: {name}{', zlib' if compress else ''}")
     mode = 'wb'
     shift = 0
-    if check.exists() and md5 == check.read_bytes():
+    if check.exists() and rmd5 == check.read_bytes():
         mode = 'ab'
         shift = temp.stat().st_size
         print(f"resuming  previous download at {shift}")
-    if save.exists() and md5 == hashlib.md5(save.read_bytes()).digest():
+    if save.exists() and rmd5 == md5(save.read_bytes()).digest():
         shift = 0xffffffffffffffff
         print('already exists, skipping')
     conn.send(shift.to_bytes(8, byteorder='big'))
     if shift == 0xffffffffffffffff:
         return True
     check.parent.mkdir(parents=True, exist_ok=True)
-    check.write_bytes(md5)
-    data_size = int.from_bytes(recv_wait_all(conn, 8), byteorder='big')
+    check.write_bytes(rmd5)
+    data_size = int.from_bytes(wrecv(conn, 8), byteorder='big')
     print(f"{data_size}bytes remaining")
     with temp.open(mode) as out:
-        while data_size > 1024:
-            data = recv_wait_all(conn, 1024)
-            out.write(data)
-            data_size -= 1024
-        out.write(recv_wait_all(conn, data_size))
-    save.write_bytes(zlib.decompress(temp.read_bytes())
+        frecv(conn, data_size, out)
+    save.write_bytes(decompress(temp.read_bytes())
                      if compress else temp.read_bytes())
-    os.remove(temp)
-    os.remove(check)
+    remove(temp)
+    remove(check)
     print('download saved')
     return True
 
