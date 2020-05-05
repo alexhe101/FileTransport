@@ -48,7 +48,7 @@ class named_file():
             self.data = zlib.compress(self.data)
 
 
-def recv_waitall(sock, length):
+def recv_wait_all(sock, length):
     data = bytes()
     while length > 0:
         frag = sock.recv(length)
@@ -64,7 +64,7 @@ def send_file(sock, path):
     sock.send(path.name.encode('utf-8'))
     sock.send(path.md5.digest())
     sock.send(int(path.compress).to_bytes(1, byteorder='big'))
-    shift = int.from_bytes(recv_waitall(sock, 8), byteorder='big')
+    shift = int.from_bytes(recv_wait_all(sock, 8), byteorder='big')
     if (shift == 0xffffffffffffffff):
         print('remote exists, skipping')
         return

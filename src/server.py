@@ -28,7 +28,7 @@ def main():
     sock.close()
 
 
-def recv_waitall(sock, length):
+def recv_wait_all(sock, length):
     data = bytes()
     while length > 0:
         frag = sock.recv(length)
@@ -38,15 +38,15 @@ def recv_waitall(sock, length):
 
 
 def recv_file(conn, path):
-    name_size = int.from_bytes(recv_waitall(conn, 4), byteorder='big')
+    name_size = int.from_bytes(recv_wait_all(conn, 4), byteorder='big')
     if(name_size == 0):
         return False
-    name = recv_waitall(conn, name_size).decode('utf-8').replace('/', os.sep)
+    name = recv_wait_all(conn, name_size).decode('utf-8').replace('/', os.sep)
     save = Path(path).joinpath(name)
     temp = Path(path).joinpath(name+'.download')
     check = Path(path).joinpath(name+'.md5')
-    md5 = recv_waitall(conn, 16)
-    compress = int.from_bytes(recv_waitall(conn, 1), byteorder='big')
+    md5 = recv_wait_all(conn, 16)
+    compress = int.from_bytes(recv_wait_all(conn, 1), byteorder='big')
     print(f"info: {name}{', zlib' if compress else ''}")
     mode = 'wb'
     shift = 0
@@ -62,14 +62,14 @@ def recv_file(conn, path):
         return True
     check.parent.mkdir(parents=True, exist_ok=True)
     check.write_bytes(md5)
-    data_size = int.from_bytes(recv_waitall(conn, 8), byteorder='big')
+    data_size = int.from_bytes(recv_wait_all(conn, 8), byteorder='big')
     print(f"{data_size}bytes remaining")
     with temp.open(mode) as out:
         while data_size > 1024:
-            data = recv_waitall(conn, 1024)
+            data = recv_wait_all(conn, 1024)
             out.write(data)
             data_size -= 1024
-        out.write(recv_waitall(conn, data_size))
+        out.write(recv_wait_all(conn, data_size))
     save.write_bytes(zlib.decompress(temp.read_bytes())
                      if compress else temp.read_bytes())
     os.remove(temp)
