@@ -56,14 +56,12 @@ def recv_file(conn, path):
     check.parent.mkdir(parents=True, exist_ok=True)
     check.write_bytes(rmd5)
     data_size = int.from_bytes(wrecv(conn, 8), byteorder='big')
-    print(f"{data_size}bytes remaining")
     with temp.open(mode) as out:
         frecv(conn, data_size, out)
     save.write_bytes(decompress(temp.read_bytes())
                      if compress else temp.read_bytes())
     remove(temp)
     remove(check)
-    print('download saved')
     return True
 
 

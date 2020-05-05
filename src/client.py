@@ -53,16 +53,17 @@ class named_file():
 
 def send_file(sock, path):
     print(
-        f"sending info: {path.name}, {path.data_size}bytes{', zlib' if path.compress else ''}")
+        f"file: {path.name}, {path.data_size}bytes{', zlib' if path.compress else ''}")
     sock.send(path.name_size.to_bytes(4, byteorder='big'))
     sock.send(path.name.encode('utf-8'))
     sock.send(path.md5.digest())
     sock.send(int(path.compress).to_bytes(1, byteorder='big'))
     shift = int.from_bytes(wrecv(sock, 8), byteorder='big')
-    if (shift == 0xffffffffffffffff):
+    if shift == 0xffffffffffffffff:
         print('remote exists, skipping')
         return
-    print(f"sending data from {'start' if shift==0 else shift}")
+    if shift > 0:
+        print(f"continuing from {shift}")
     sock.send((path.data_size-shift).to_bytes(8, byteorder='big'))
     dsend(sock, path.data, shift)
 
