@@ -3,7 +3,7 @@ from hashlib import md5
 from os import remove, sep
 from pathlib import Path
 from sys import argv
-from zlib import decompress
+from zlib import decompressobj
 
 from dsocket import frecv, wrecv
 
@@ -58,9 +58,17 @@ def recv_file(conn, path):
     data_size = int.from_bytes(wrecv(conn, 8), byteorder='big')
     with temp.open(mode) as out:
         frecv(conn, data_size, out)
-    save.write_bytes(decompress(temp.read_bytes())
-                     if compress else temp.read_bytes())
-    remove(temp)
+
+    if compress:
+        with temp.open('rb') as r:
+            compressed = r.read()
+            obj = decompressobj()
+            decompressed = obj.decompress(compressed)
+            with save.open('wb') as w:
+                w.write(decompressed)
+        remove(temp)
+    else:
+        temp.rename(save)
     remove(check)
     return True
 
