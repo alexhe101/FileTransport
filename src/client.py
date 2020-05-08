@@ -50,7 +50,6 @@ def send_file(sock, name, path, compress):
                     w.write(compressed)
             path = path+'.zlib'
         data_size = Path(path).stat().st_size
-
     sock.send(name_size.to_bytes(4, byteorder='big'))
     sock.send(name.encode('utf-8'))
     sock.send(lmd5)
@@ -62,7 +61,6 @@ def send_file(sock, name, path, compress):
     if shift > 0:
         print(f"continuing from {shift}")
     sock.send((data_size-shift).to_bytes(8, byteorder='big'))
-
     if data:
         dsend(sock, data, shift)
     else:
