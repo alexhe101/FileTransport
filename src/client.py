@@ -1,13 +1,12 @@
 import socket
 from hashlib import md5
 from os import remove, sep
-from os.path import normpath
 from pathlib import Path
 from sys import argv
 from time import time
 from zlib import compress, compressobj
 
-from common import dsend, fmd5, fsend, wrecv
+from common import dsend, fmd5, fsend, wrecv, fglob
 
 
 def main():
@@ -20,7 +19,7 @@ def main():
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.connect((addr, port))
     print(f"connected to {addr}:{port}")
-    for f in file_glob(path):
+    for f in fglob(path):
         send_file(sock, f[0], f[1], compress)
     sock.send(int(0).to_bytes(4, byteorder='big'))
     sock.close()
@@ -29,13 +28,6 @@ def main():
     print(f"total size: {total}Bytes,")
     print(f"elapsed time: {elapsed}s,")
     print(f"speed: {total/elapsed/0x100000}MB/s")
-
-
-def file_glob(path):
-    path = Path(normpath((Path(path).absolute())))
-    return [[path.name, path]] if path.is_file()\
-        else [[str(item.relative_to(path.parent)), item]
-              for item in path.rglob('*') if item.is_file()]
 
 
 def send_file(sock, name, path, compress):

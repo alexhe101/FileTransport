@@ -1,5 +1,6 @@
 from hashlib import md5
 from pathlib import Path
+from os.path import normpath
 
 
 def wrecv(sock, length):
@@ -55,3 +56,10 @@ def fmd5(path):
         for chunk in iter(lambda: f.read(0x100000), b""):
             lmd5.update(chunk)
     return lmd5.digest()
+
+
+def fglob(path):
+    path = Path(normpath((Path(path).absolute())))
+    return [[path.name, path]] if path.is_file()\
+        else [[str(item.relative_to(path.parent)), item]
+              for item in path.rglob('*') if item.is_file()]
