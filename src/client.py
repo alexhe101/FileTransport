@@ -44,11 +44,11 @@ class named_file():
         self.name = name.replace(sep, '/')
         self.name_size = len(self.name.encode('utf-8'))
         self.data = path.read_bytes()
-        self.data_size = len(self.data)
         self.md5 = md5(self.data)
         self.compress = compress
         if self.compress:
             self.data = compress(self.data)
+        self.data_size = len(self.data)
 
 
 def send_file(sock, path):
