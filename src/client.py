@@ -1,13 +1,13 @@
 import socket
 from hashlib import md5
-from os import sep
+from os import remove, sep
 from os.path import normpath
 from pathlib import Path
 from sys import argv
 from time import time
-from zlib import compress
+from zlib import compress, compressobj
 
-from dsocket import dsend, wrecv
+from common import dsend, fmd5, fsend, wrecv
 
 
 def main():
@@ -21,8 +21,7 @@ def main():
     sock.connect((addr, port))
     print(f"connected to {addr}:{port}")
     for f in file_glob(path):
-        total += f[1].stat().st_size
-        send_file(sock, named_file(f[0], f[1], compress))
+        send_file(sock, f[0], f[1], compress)
     sock.send(int(0).to_bytes(4, byteorder='big'))
     sock.close()
     print("connection closed")
@@ -39,33 +38,45 @@ def file_glob(path):
               for item in path.rglob('*') if item.is_file()]
 
 
-class named_file():
-    def __init__(self, name, path, compress=False):
-        self.name = name.replace(sep, '/')
-        self.name_size = len(self.name.encode('utf-8'))
-        self.data = path.read_bytes()
-        self.md5 = md5(self.data)
-        self.compress = compress
-        if self.compress:
-            self.data = compress(self.data)
-        self.data_size = len(self.data)
+def send_file(sock, name, path, compress):
+    name = name.replace(sep, '/')
+    name_size = len(name.encode('utf-8'))
+    data = None
+    try:
+        data = path.read_bytes()
+        lmd5 = md5(data).digest()
+        if compress:
+            data = compress(data)
+        data_size = len(data)
+    except MemoryError:
+        lmd5 = fmd5(path)
+        if compress:
+            with open(path, 'rb') as f:
+                raw = f.read()
+                compressed = compressobj().compress(raw)
+                with open(path+'.zlib', 'wb') as w:
+                    w.write(compressed)
+            path = path+'.zlib'
+        data_size = Path(path).stat().st_size
 
-
-def send_file(sock, path):
-    print(
-        f"file: {path.name}, {path.data_size}bytes{', zlib' if path.compress else ''}")
-    sock.send(path.name_size.to_bytes(4, byteorder='big'))
-    sock.send(path.name.encode('utf-8'))
-    sock.send(path.md5.digest())
-    sock.send(int(path.compress).to_bytes(1, byteorder='big'))
+    sock.send(name_size.to_bytes(4, byteorder='big'))
+    sock.send(name.encode('utf-8'))
+    sock.send(lmd5)
+    sock.send(int(compress).to_bytes(1, byteorder='big'))
     shift = int.from_bytes(wrecv(sock, 8), byteorder='big')
     if shift == 0xffffffffffffffff:
         print('remote exists, skipping')
         return
     if shift > 0:
         print(f"continuing from {shift}")
-    sock.send((path.data_size-shift).to_bytes(8, byteorder='big'))
-    dsend(sock, path.data, shift)
+    sock.send((data_size-shift).to_bytes(8, byteorder='big'))
+
+    if data:
+        dsend(sock, data, shift)
+    else:
+        fsend(sock, path, shift)
+        if compress:
+            remove(path)
 
 
 if __name__ == '__main__':

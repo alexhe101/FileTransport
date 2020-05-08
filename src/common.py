@@ -1,3 +1,7 @@
+from hashlib import md5
+from pathlib import Path
+
+
 def wrecv(sock, length):
     data = b''
     while length > 0:
@@ -29,3 +33,25 @@ def dsend(sock, data,  shift, progress=True):
     sock.send(data[shift:])
     if progress:
         print('all sent'+' ' * 80)
+
+
+def fsend(sock, path, shift, progress=True):
+    block = 0x10000
+    size = Path(path).stat().st_size
+    with open(path, 'rb') as f:
+        f.seek(shift)
+        while f.tell() + block < size:
+            sock.send(f.read(block))
+            if progress:
+                print(f"progress: {(shift/0x100000):.3f}MB sent", end='\r')
+        sock.send(f.read(size-f.tell()))
+    if progress:
+        print('all sent'+' ' * 80)
+
+
+def fmd5(path):
+    lmd5 = md5()
+    with open(path, 'rb') as f:
+        for chunk in iter(lambda: f.read(0x100000), b""):
+            lmd5.update(chunk)
+    return lmd5.digest()

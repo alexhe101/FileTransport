@@ -5,7 +5,7 @@ from pathlib import Path
 from sys import argv
 from zlib import decompressobj
 
-from dsocket import frecv, wrecv
+from common import fmd5, frecv, wrecv
 
 
 def main():
@@ -47,14 +47,9 @@ def recv_file(conn, path):
         mode = 'ab'
         shift = temp.stat().st_size
         print(f"resuming  previous download at {shift}")
-    if save.exists():
-        lmd5 = md5()
-        with open(save, 'rb') as f:
-            for chunk in iter(lambda: f.read(0x100000), b""):
-                lmd5.update(chunk)
-        if rmd5 == lmd5.digest():
-            shift = 0xffffffffffffffff
-            print('already exists, skipping')
+    if save.exists() and rmd5 == fmd5(save):
+        shift = 0xffffffffffffffff
+        print('already exists, skipping')
     conn.send(shift.to_bytes(8, byteorder='big'))
     if shift == 0xffffffffffffffff:
         return True
