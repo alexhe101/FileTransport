@@ -6,7 +6,7 @@ from sys import argv
 from time import time
 from zlib import compress, compressobj
 
-from common import dsend, fmd5, fsend, wrecv, fglob
+from common import dsend, fglob, fmd5, fsend, wrecv
 
 
 def main():
