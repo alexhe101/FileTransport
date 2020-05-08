@@ -47,9 +47,14 @@ def recv_file(conn, path):
         mode = 'ab'
         shift = temp.stat().st_size
         print(f"resuming  previous download at {shift}")
-    if save.exists() and rmd5 == md5(save.read_bytes()).digest():
-        shift = 0xffffffffffffffff
-        print('already exists, skipping')
+    if save.exists():
+        lmd5 = md5()
+        with open(save, 'rb') as f:
+            for chunk in iter(lambda: f.read(0x100000), b""):
+                lmd5.update(chunk)
+        if rmd5 == lmd5.digest():
+            shift = 0xffffffffffffffff
+            print('already exists, skipping')
     conn.send(shift.to_bytes(8, byteorder='big'))
     if shift == 0xffffffffffffffff:
         return True
@@ -62,8 +67,7 @@ def recv_file(conn, path):
     if compress:
         with temp.open('rb') as r:
             compressed = r.read()
-            obj = decompressobj()
-            decompressed = obj.decompress(compressed)
+            decompressed = decompressobj().decompress(compressed)
             with save.open('wb') as w:
                 w.write(decompressed)
         remove(temp)
