@@ -40,6 +40,7 @@ def recv_file(conn, path):
     check = Path(path).joinpath(name+'.md5')
     rmd5 = wrecv(conn, 16)
     compress = int.from_bytes(wrecv(conn, 1), byteorder='big')
+    data_size = int.from_bytes(wrecv(conn, 8), byteorder='big')
     print(f"file: {name}{', zlib' if compress else ''}")
     mode = 'wb'
     shift = 0
@@ -53,12 +54,11 @@ def recv_file(conn, path):
     conn.send(shift.to_bytes(8, byteorder='big'))
     if shift == 0xffffffffffffffff:
         return True
+    data_size -= shift
     check.parent.mkdir(parents=True, exist_ok=True)
     check.write_bytes(rmd5)
-    data_size = int.from_bytes(wrecv(conn, 8), byteorder='big')
     with temp.open(mode) as out:
         frecv(conn, data_size, out)
-
     if compress:
         with temp.open('rb') as r:
             compressed = r.read()

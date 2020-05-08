@@ -55,13 +55,13 @@ def send_file(sock, name, path, compress):
     sock.send(name.encode('utf-8'))
     sock.send(lmd5)
     sock.send(int(compress).to_bytes(1, byteorder='big'))
+    sock.send(data_size.to_bytes(8, byteorder='big'))
     shift = int.from_bytes(wrecv(sock, 8), byteorder='big')
     if shift == 0xffffffffffffffff:
         print('remote exists, skipping')
         return
     if shift > 0:
         print(f"continuing from {shift}Byte")
-    sock.send((data_size-shift).to_bytes(8, byteorder='big'))
     if data:
         dsend(sock, data, shift)
     else:
