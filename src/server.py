@@ -5,7 +5,7 @@ from pathlib import Path
 from sys import argv
 from zlib import decompressobj
 
-from dsocket import frecv, wrecv
+from common import fmd5, frecv, wrecv
 
 
 def main():
@@ -40,30 +40,29 @@ def recv_file(conn, path):
     check = Path(path).joinpath(name+'.md5')
     rmd5 = wrecv(conn, 16)
     compress = int.from_bytes(wrecv(conn, 1), byteorder='big')
+    data_size = int.from_bytes(wrecv(conn, 8), byteorder='big')
     print(f"file: {name}{', zlib' if compress else ''}")
     mode = 'wb'
     shift = 0
     if check.exists() and rmd5 == check.read_bytes():
         mode = 'ab'
         shift = temp.stat().st_size
-        print(f"resuming  previous download at {shift}")
-    if save.exists() and rmd5 == md5(save.read_bytes()).digest():
+        print(f"resuming  previous download at {shift}Byte")
+    if save.exists() and rmd5 == fmd5(save):
         shift = 0xffffffffffffffff
         print('already exists, skipping')
     conn.send(shift.to_bytes(8, byteorder='big'))
     if shift == 0xffffffffffffffff:
         return True
+    data_size -= shift
     check.parent.mkdir(parents=True, exist_ok=True)
     check.write_bytes(rmd5)
-    data_size = int.from_bytes(wrecv(conn, 8), byteorder='big')
     with temp.open(mode) as out:
         frecv(conn, data_size, out)
-
     if compress:
         with temp.open('rb') as r:
             compressed = r.read()
-            obj = decompressobj()
-            decompressed = obj.decompress(compressed)
+            decompressed = decompressobj().decompress(compressed)
             with save.open('wb') as w:
                 w.write(decompressed)
         remove(temp)
