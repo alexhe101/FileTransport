@@ -51,6 +51,7 @@ def send_file(sock, name, path, compress):
                     w.write(compressed)
             path = path+'.zlib'
         data_size = Path(path).stat().st_size
+    print(f"file: {name}, {data_size}bytes{', zlib' if compress else ''}")
     sock.send(name_size.to_bytes(4, byteorder='big'))
     sock.send(name.encode('utf-8'))
     sock.send(lmd5)
