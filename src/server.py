@@ -46,7 +46,7 @@ def recv_file(conn, path):
     if check.exists() and rmd5 == check.read_bytes():
         mode = 'ab'
         shift = temp.stat().st_size
-        print(f"resuming  previous download at {shift}")
+        print(f"resuming  previous download at {shift}Byte")
     if save.exists() and rmd5 == fmd5(save):
         shift = 0xffffffffffffffff
         print('already exists, skipping')

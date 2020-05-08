@@ -20,12 +20,13 @@ def main():
     sock.connect((addr, port))
     print(f"connected to {addr}:{port}")
     for f in fglob(path):
+        total += f[1].stat().st_size
         send_file(sock, f[0], f[1], compress)
     sock.send(int(0).to_bytes(4, byteorder='big'))
     sock.close()
     print("connection closed")
     elapsed = time() - elapsed
-    print(f"total size: {total}Bytes,")
+    print(f"total size: {total}Bytes(skipped included),")
     print(f"elapsed time: {elapsed}s,")
     print(f"speed: {total/elapsed/0x100000}MB/s")
 
@@ -59,7 +60,7 @@ def send_file(sock, name, path, compress):
         print('remote exists, skipping')
         return
     if shift > 0:
-        print(f"continuing from {shift}")
+        print(f"continuing from {shift}Byte")
     sock.send((data_size-shift).to_bytes(8, byteorder='big'))
     if data:
         dsend(sock, data, shift)
