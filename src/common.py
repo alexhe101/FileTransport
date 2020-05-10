@@ -44,7 +44,7 @@ def fsend(sock, path, shift, progress=True):
         while f.tell() + block < size:
             sock.send(f.read(block))
             if progress:
-                print(f"progress: {(shift/0x100000):.3f}MB sent", end='\r')
+                print(f"progress: {(f.tell()/0x100000):.3f}MB sent", end='\r')
         sock.send(f.read(size-f.tell()))
     if progress:
         print('all sent'+' ' * 80)

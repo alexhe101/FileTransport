@@ -18,7 +18,7 @@ To start, client sends the file header including structure as follows:
 
 | name_size | name              | md5      | compress | data_size |
 |-----------|-------------------|----------|----------|-----------|
-| 4 bytes   | [name_size] bytes | 16 bytes | 1 byte   | 8 byte    |
+| 4 bytes   | [name_size] bytes | 16 bytes | 1 byte   | 8 bytes   |
 
 * `name_size` indicates the length of the name that follows.
 * `name` is the UTF-8 encoded file name, with its relative path if sent in folder, it uses the same unix seperator in header and is connverted before sending and after receiving.
